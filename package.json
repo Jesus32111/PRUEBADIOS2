@@ -4,8 +4,8 @@
   "version": "1.0.0",
   "type": "module",
   "scripts": {
-    "start": "node backend/server.js",        
-    "build": "vite build",                        
+    "start": "node backend/server.js",
+    "build": "vite build",
     "dev": "concurrently \"npm run dev:backend\" \"npm run dev:frontend\"",
     "dev:frontend": "vite",
     "dev:backend": "nodemon backend/server.js",
@@ -14,6 +14,7 @@
   },
   "dependencies": {
     "vite": "^5.4.2",
+    "@vitejs/plugin-react": "^4.3.1",
     "axios": "^1.6.7",
     "bcryptjs": "^2.4.3",
     "cookie-parser": "^1.4.6",
@@ -35,7 +36,6 @@
     "@eslint/js": "^9.9.1",
     "@types/react": "^18.3.5",
     "@types/react-dom": "^18.3.0",
-    "@vitejs/plugin-react": "^4.3.1",
     "autoprefixer": "^10.4.18",
     "concurrently": "^8.2.2",
     "eslint": "^9.9.1",
