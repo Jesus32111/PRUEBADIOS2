@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { useAuth } from '../context/AuthContext';
+import React, { useState, useEffect } from 'react';
+import { useAuth, apiClient } from '../context/AuthContext';
 import { 
   Settings, 
   LogOut, 
@@ -35,6 +35,70 @@ const MainDashboard: React.FC = () => {
   const { user, logout } = useAuth();
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [activeModule, setActiveModule] = useState('home');
+
+  // States for real data
+  const [totalMachinery, setTotalMachinery] = useState(0);
+  const [totalVehicles, setTotalVehicles] = useState(0);
+  const [criticalAlerts, setCriticalAlerts] = useState(0);
+  const [monthlyIncome, setMonthlyIncome] = useState(0);
+  const [machineryStatusData, setMachineryStatusData] = useState<Array<{ name: string; value: number; color: string }>>([]);
+  const [vehicleStatusData, setVehicleStatusData] = useState<Array<{ name: string; value: number; color: string }>>([]);
+  const [recentAlerts, setRecentAlerts] = useState<any[]>([]);
+
+
+  useEffect(() => {
+    const fetchData = async () => {
+      try {
+        // Fetch machinery data
+        const machineryResponse = await apiClient.get('/machinery');
+        const machineries = machineryResponse.data.data || [];
+        setTotalMachinery(machineries.length);
+        
+        const machineryStatusCounts = machineries.reduce((acc: any, m: any) => {
+          acc[m.status] = (acc[m.status] || 0) + 1;
+          return acc;
+        }, {});
+        setMachineryStatusData([
+          { name: 'Disponible', value: machineryStatusCounts['Disponible'] || 0, color: 'bg-green-500' },
+          { name: 'En Mantenimiento', value: machineryStatusCounts['En Mantenimiento'] || 0, color: 'bg-yellow-500' },
+          { name: 'Alquilada', value: machineryStatusCounts['Alquilada'] || 0, color: 'bg-blue-500' },
+          { name: 'Fuera de Servicio', value: machineryStatusCounts['Fuera de Servicio'] || 0, color: 'bg-red-500' },
+        ]);
+
+        // Fetch vehicle data
+        const vehicleResponse = await apiClient.get('/vehicles');
+        const vehicles = vehicleResponse.data.data || [];
+        setTotalVehicles(vehicles.length);
+
+        const vehicleStatusCounts = vehicles.reduce((acc: any, v: any) => {
+          acc[v.status] = (acc[v.status] || 0) + 1;
+          return acc;
+        }, {});
+        setVehicleStatusData([
+          { name: 'Operativo', value: vehicleStatusCounts['Operativo'] || 0, color: 'bg-green-500' },
+          { name: 'En Mantenimiento', value: vehicleStatusCounts['En Mantenimiento'] || 0, color: 'bg-yellow-500' },
+          { name: 'No Disponible', value: vehicleStatusCounts['No Disponible'] || 0, color: 'bg-orange-500' },
+          { name: 'Fuera de Servicio', value: vehicleStatusCounts['Fuera de Servicio'] || 0, color: 'bg-red-500' },
+        ]);
+        
+        // Fetch alerts data
+        const alertsResponse = await apiClient.get('/alerts?priority=Crítica&status=Activa');
+        setCriticalAlerts(alertsResponse.data.data?.length || 0);
+        
+        const recentAlertsResponse = await apiClient.get('/alerts?limit=5&sort=-createdAt');
+        setRecentAlerts(recentAlertsResponse.data.data || []);
+
+        // Fetch finance data (monthly income)
+        const financeResponse = await apiClient.get('/finance/stats?period=month');
+        setMonthlyIncome(financeResponse.data.data?.summary?.totalIncome || 0);
+
+      } catch (error) {
+        console.error("Error fetching dashboard data:", error);
+      }
+    };
+
+    fetchData();
+  }, []);
 
   const handleLogout = () => {
     logout();
@@ -119,26 +183,8 @@ const MainDashboard: React.FC = () => {
         );
       case 'home':
       default:
-        // Datos ficticios para las estadísticas y gráficos
-        const totalMachinery = 120;
-        const totalVehicles = 75;
-        const criticalAlerts = 5;
-        const monthlyIncome = 25000; // en USD
-
-        const machineryStatusData = [
-          { name: 'Disponible', value: 70, color: 'bg-green-500' },
-          { name: 'Mantenimiento', value: 20, color: 'bg-yellow-500' },
-          { name: 'Alquilado', value: 30, color: 'bg-blue-500' },
-        ];
-
-        const vehicleStatusData = [
-          { name: 'Disponible', value: 45, color: 'bg-green-500' },
-          { name: 'Mantenimiento', value: 10, color: 'bg-yellow-500' },
-          { name: 'Alquilado', value: 20, color: 'bg-blue-500' },
-        ];
-
         const quickAccessItems = menuItems.filter(item => 
-          ['machinery', 'vehicles', 'rentals', 'alerts', 'finance', 'reports'].includes(item.id)
+          ['machinery', 'vehicles', 'rentals', 'alerts', 'finance'].includes(item.id) // Removed 'reports'
         );
         
         return (
@@ -221,22 +267,30 @@ const MainDashboard: React.FC = () => {
                 </div>
               </div>
               
-              {/* Lista de Reportes */}
+              {/* Lista de Alertas Recientes */}
               <div className="lg:col-span-1 bg-white p-6 rounded-lg shadow-md">
-                <h2 className="text-xl font-semibold text-gray-700 mb-4">Reportes Recientes</h2>
-                <ul className="space-y-3">
-                  {['Reporte de Mantenimiento Q3', 'Informe de Alquileres Julio', 'Estado de Flota General', 'Reporte Financiero Mensual'].map(report => (
-                    <li key={report} className="flex items-center text-sm text-gray-600 hover:text-blue-600 cursor-pointer">
-                      <FileText className="h-4 w-4 mr-2 flex-shrink-0" />
-                      {report}
-                    </li>
-                  ))}
-                </ul>
+                <h2 className="text-xl font-semibold text-gray-700 mb-4">Alertas Recientes</h2>
+                {recentAlerts.length > 0 ? (
+                  <ul className="space-y-3">
+                    {recentAlerts.map((alert: any) => (
+                      <li 
+                        key={alert._id} 
+                        className="flex items-center text-sm text-gray-600 hover:text-blue-600 cursor-pointer"
+                        onClick={() => setActiveModule('alerts')}
+                      >
+                        <AlertTriangle className="h-4 w-4 mr-2 flex-shrink-0 text-yellow-500" />
+                        {alert.title}
+                      </li>
+                    ))}
+                  </ul>
+                ) : (
+                  <p className="text-sm text-gray-500">No hay alertas recientes.</p>
+                )}
                 <button 
-                  onClick={() => setActiveModule('reports')}
+                  onClick={() => setActiveModule('alerts')}
                   className="mt-4 text-sm text-blue-600 hover:underline"
                 >
-                  Ver todos los reportes
+                  Ver todas las alertas
                 </button>
               </div>
             </div>
@@ -247,23 +301,35 @@ const MainDashboard: React.FC = () => {
               <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
                 {quickAccessItems.map((item) => {
                   const Icon = item.icon;
-                  const isAvailable = ['machinery', 'warehouses', 'vehicles','fuel','tools','parts','alerts','finance','rentals', 'reports'].includes(item.id);
+                  // Updated isAvailable to exclude 'reports' and ensure 'alerts' is handled correctly
+                  const isAvailable = ['machinery', 'warehouses', 'vehicles','fuel','tools','parts','alerts','finance','rentals'].includes(item.id);
+                  
+                  // Special handling for the 'reports' item if it was part of quickAccessItems, 
+                  // it should now point to 'alerts'
+                  let currentItem = item;
+                  if (item.id === 'reports') {
+                    const alertsItem = menuItems.find(mi => mi.id === 'alerts');
+                    if (alertsItem) {
+                      currentItem = alertsItem;
+                    }
+                  }
+
                   return (
                     <button
-                      key={item.id}
-                      onClick={() => setActiveModule(item.id)}
+                      key={currentItem.id}
+                      onClick={() => setActiveModule(currentItem.id)} // Use currentItem.id
                       disabled={!isAvailable}
                       className={`flex flex-col items-center justify-center p-4 bg-white rounded-lg shadow-md hover:shadow-lg transition-shadow ${
                         !isAvailable ? 'opacity-50 cursor-not-allowed' : 'hover:bg-gray-50'
                       }`}
                     >
-                      <Icon className={`h-10 w-10 mb-2 ${
-                        activeModule === item.id ? 'text-blue-600' : isAvailable ? 'text-blue-500' : 'text-gray-400'
+                      <Icon className={`h-10 w-10 mb-2 ${ // Icon remains from original item
+                        activeModule === currentItem.id ? 'text-blue-600' : isAvailable ? 'text-blue-500' : 'text-gray-400'
                       }`} />
                       <span className={`text-sm font-medium ${
-                        activeModule === item.id ? 'text-blue-700' : 'text-gray-700'
-                      }`}>{item.name}</span>
-                      {!isAvailable && item.id !== 'home' && (
+                        activeModule === currentItem.id ? 'text-blue-700' : 'text-gray-700'
+                      }`}>{currentItem.name}</span> {/* Use currentItem.name */}
+                      {!isAvailable && currentItem.id !== 'home' && ( // Use currentItem.id
                         <span className="mt-1 text-xs bg-yellow-100 text-yellow-800 px-1.5 py-0.5 rounded-full">
                           Pronto
                         </span>
