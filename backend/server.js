@@ -6,6 +6,7 @@ import cookieParser from 'cookie-parser';
 import dotenv from 'dotenv';
 import path from 'path';
 import { fileURLToPath } from 'url';
+
 import connectDB from './config/database.js';
 import authRoutes from './routes/auth.js';
 import machineryRoutes from './routes/machinery.js';
@@ -40,16 +41,16 @@ app.use(cors({
 
 // Rate limiting
 const limiter = rateLimit({
-  windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 100, // limit each IP to 100 requests per windowMs
+  windowMs: 15 * 60 * 1000,
+  max: 100,
   message: 'Too many requests from this IP, please try again later.',
 });
 app.use(limiter);
 
 // Stricter rate limiting for auth routes
 const authLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 5, // limit each IP to 5 auth requests per windowMs
+  windowMs: 15 * 60 * 1000,
+  max: 5,
   message: 'Too many authentication attempts, please try again later.',
 });
 
@@ -61,7 +62,7 @@ app.use(cookieParser());
 // Serve uploaded files
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
-// Logging middleware for debugging
+// Logging middleware
 app.use((req, res, next) => {
   console.log(`${new Date().toISOString()} - ${req.method} ${req.path}`);
   console.log('Headers:', req.headers);
@@ -83,33 +84,45 @@ app.use('/api/alerts', AlertRoutes);
 app.use('/api/finance', FinanceRoutes);
 app.use('/api/rentals', RentalRoutes);
 
-
-// Health check endpoint
+// Health check
 app.get('/api/health', (req, res) => {
-  res.status(200).json({ 
-    status: 'OK', 
+  res.status(200).json({
+    status: 'OK',
     message: 'Server is running',
     timestamp: new Date().toISOString()
   });
 });
 
+// Serve frontend build files
+app.use(express.static(path.join(__dirname, '..', 'dist')));
+
+// Redirect non-API routes to frontend
+app.get(/^\/(?!api).*/, (req, res) => {
+  res.sendFile(path.join(__dirname, '..', 'dist', 'index.html'));
+});
+
 // Global error handler
 app.use((err, req, res, next) => {
   console.error('Global error handler:', err.stack);
-  res.status(500).json({ 
+  res.status(500).json({
     success: false,
     message: 'Something went wrong!',
     error: process.env.NODE_ENV === 'development' ? err.message : undefined
   });
 });
 
-// 404 handler
+// 404 handler for API routes
 app.use('*', (req, res) => {
-  console.log('404 - Route not found:', req.originalUrl);
-  res.status(404).json({ 
-    success: false,
-    message: 'Route not found' 
-  });
+  if (req.originalUrl.startsWith('/api')) {
+    console.log('404 - API Route not found:', req.originalUrl);
+    res.status(404).json({
+      success: false,
+      message: 'API route not found'
+    });
+  } else {
+    // Redirect all non-API unmatched routes to frontend
+    res.sendFile(path.join(__dirname, '..', 'dist', 'index.html'));
+  }
 });
 
 app.listen(PORT, () => {

@@ -4,10 +4,11 @@
   "version": "1.0.0",
   "type": "module",
   "scripts": {
+    "start": "node backend/server.js",        
+    "build": "vite build",                        
     "dev": "concurrently \"npm run dev:backend\" \"npm run dev:frontend\"",
     "dev:frontend": "vite",
     "dev:backend": "nodemon backend/server.js",
-    "build": "vite build",
     "lint": "eslint .",
     "preview": "vite preview"
   },
