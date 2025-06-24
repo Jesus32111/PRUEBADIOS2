@@ -17,7 +17,8 @@ import {
   Hammer,
   Package,
   AlertTriangle,
-  Wallet
+  Wallet,
+  Briefcase
 
 } from 'lucide-react';
 import MachineryModule from './MachineryModule';
@@ -28,6 +29,7 @@ import ToolsModule from './ToolsModule';
 import PartsModule from './PartsModule';
 import AlertsModule from './AlertsModule';
 import FinanceModule from './FinanceModule';
+import RentalsModule from './RentalsModule';
 
 const MainDashboard: React.FC = () => {
   const { user, logout } = useAuth();
@@ -41,6 +43,7 @@ const MainDashboard: React.FC = () => {
   const menuItems = [
     { id: 'home', name: 'Inicio', icon: Home },
     { id: 'machinery', name: 'Maquinarias', icon: Wrench },
+    { id: 'rentals', name: 'Alquileres', icon: Briefcase },
     { id: 'warehouses', name: 'Almacenes', icon: Building2 },
     { id: 'vehicles', name: 'Vehículos', icon: Car },
     { id: 'fuel', name: 'Combustible', icon: Fuel },
@@ -72,6 +75,8 @@ const MainDashboard: React.FC = () => {
         return <AlertsModule />;
       case 'finance':
         return <FinanceModule />;
+      case 'rentals':
+        return <RentalsModule />;
       case 'reports':
         return (
           <div className="p-8">
@@ -128,7 +133,7 @@ const MainDashboard: React.FC = () => {
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 max-w-6xl mx-auto">
                 {menuItems.slice(1).map((item) => {
                   const Icon = item.icon;
-                  const isAvailable = ['machinery', 'warehouses', 'vehicles','fuel','tools','alerts','finace'].includes(item.id);
+                  const isAvailable = ['machinery', 'warehouses', 'vehicles','fuel','tools','alerts','finace','rentals'].includes(item.id);
                   
                   return (
                     <button
@@ -230,7 +235,7 @@ const MainDashboard: React.FC = () => {
         <nav className="mt-6 px-3">
           {menuItems.map((item) => {
             const Icon = item.icon;
-            const isAvailable = item.id === 'home' || ['machinery', 'warehouses', 'vehicles','fuel','tools','parts','alerts','finance'].includes(item.id);
+            const isAvailable = item.id === 'home' || ['machinery', 'warehouses', 'vehicles','fuel','tools','parts','alerts','finance','rentals'].includes(item.id);
             
             return (
               <button

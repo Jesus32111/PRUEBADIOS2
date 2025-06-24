@@ -16,6 +16,7 @@ import toolsRoutes from './routes/tools.js';
 import partsRoutes from './routes/parts.js';
 import AlertRoutes from './routes/alerts.js';
 import FinanceRoutes from './routes/finance.js';
+import RentalRoutes from './routes/rentals.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -80,6 +81,7 @@ app.use('/api/tools', toolsRoutes);
 app.use('/api/parts', partsRoutes);
 app.use('/api/alerts', AlertRoutes);
 app.use('/api/finance', FinanceRoutes);
+app.use('/api/rentals', RentalRoutes);
 
 
 // Health check endpoint
