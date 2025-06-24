@@ -119,93 +119,158 @@ const MainDashboard: React.FC = () => {
         );
       case 'home':
       default:
+        // Datos ficticios para las estadísticas y gráficos
+        const totalMachinery = 120;
+        const totalVehicles = 75;
+        const criticalAlerts = 5;
+        const monthlyIncome = 25000; // en USD
+
+        const machineryStatusData = [
+          { name: 'Disponible', value: 70, color: 'bg-green-500' },
+          { name: 'Mantenimiento', value: 20, color: 'bg-yellow-500' },
+          { name: 'Alquilado', value: 30, color: 'bg-blue-500' },
+        ];
+
+        const vehicleStatusData = [
+          { name: 'Disponible', value: 45, color: 'bg-green-500' },
+          { name: 'Mantenimiento', value: 10, color: 'bg-yellow-500' },
+          { name: 'Alquilado', value: 20, color: 'bg-blue-500' },
+        ];
+
+        const quickAccessItems = menuItems.filter(item => 
+          ['machinery', 'vehicles', 'rentals', 'alerts', 'finance', 'reports'].includes(item.id)
+        );
+        
         return (
-          <div className="p-8">
-            <div className="text-center">
-              <div className="mb-8">
-                <div className="mx-auto h-32 w-32 bg-gradient-to-r from-blue-600 to-indigo-600 rounded-full flex items-center justify-center mb-6">
-                  <Wrench className="h-16 w-16 text-white" />
+          <div className="p-6 bg-gray-100 min-h-full">
+            <h1 className="text-3xl font-bold text-gray-800 mb-8">Dashboard Principal</h1>
+
+            {/* Estadísticas Principales */}
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+              <div className="bg-white p-6 rounded-lg shadow-md flex items-center justify-between">
+                <div>
+                  <p className="text-sm text-gray-500">Maquinarias Totales</p>
+                  <p className="text-3xl font-bold text-gray-800">{totalMachinery}</p>
                 </div>
-                <h1 className="text-4xl font-bold text-gray-900 mb-2">MaquiRent Pro</h1>
-                <p className="text-xl text-gray-600">Sistema de Gestión de Maquinarias, Almacenes y Vehículos</p>
+                <Wrench className="h-10 w-10 text-blue-500" />
+              </div>
+              <div className="bg-white p-6 rounded-lg shadow-md flex items-center justify-between">
+                <div>
+                  <p className="text-sm text-gray-500">Vehículos Totales</p>
+                  <p className="text-3xl font-bold text-gray-800">{totalVehicles}</p>
+                </div>
+                <Car className="h-10 w-10 text-green-500" />
+              </div>
+              <div className="bg-white p-6 rounded-lg shadow-md flex items-center justify-between">
+                <div>
+                  <p className="text-sm text-gray-500">Alertas Críticas</p>
+                  <p className="text-3xl font-bold text-red-500">{criticalAlerts}</p>
+                </div>
+                <AlertTriangle className="h-10 w-10 text-red-500" />
+              </div>
+              <div className="bg-white p-6 rounded-lg shadow-md flex items-center justify-between">
+                <div>
+                  <p className="text-sm text-gray-500">Ingresos del Mes</p>
+                  <p className="text-3xl font-bold text-gray-800">${monthlyIncome.toLocaleString()}</p>
+                </div>
+                <Wallet className="h-10 w-10 text-purple-500" />
+              </div>
+            </div>
+
+            {/* Gráficos y Lista de Reportes */}
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
+              {/* Maquinarias por Estado */}
+              <div className="lg:col-span-1 bg-white p-6 rounded-lg shadow-md">
+                <h2 className="text-xl font-semibold text-gray-700 mb-4">Maquinarias por Estado</h2>
+                <div className="space-y-3">
+                  {machineryStatusData.map(item => (
+                    <div key={item.name}>
+                      <div className="flex justify-between text-sm text-gray-600 mb-1">
+                        <span>{item.name}</span>
+                        <span>{item.value}</span>
+                      </div>
+                      <div className="w-full bg-gray-200 rounded-full h-2.5">
+                        <div 
+                          className={`${item.color} h-2.5 rounded-full`} 
+                          style={{ width: `${(item.value / totalMachinery) * 100}%` }}
+                        ></div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {/* Vehículos por Estado */}
+              <div className="lg:col-span-1 bg-white p-6 rounded-lg shadow-md">
+                <h2 className="text-xl font-semibold text-gray-700 mb-4">Vehículos por Estado</h2>
+                <div className="space-y-3">
+                  {vehicleStatusData.map(item => (
+                    <div key={item.name}>
+                      <div className="flex justify-between text-sm text-gray-600 mb-1">
+                        <span>{item.name}</span>
+                        <span>{item.value}</span>
+                      </div>
+                      <div className="w-full bg-gray-200 rounded-full h-2.5">
+                        <div 
+                          className={`${item.color} h-2.5 rounded-full`} 
+                          style={{ width: `${(item.value / totalVehicles) * 100}%` }}
+                        ></div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
               </div>
               
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 max-w-6xl mx-auto">
-                {menuItems.slice(1).map((item) => {
+              {/* Lista de Reportes */}
+              <div className="lg:col-span-1 bg-white p-6 rounded-lg shadow-md">
+                <h2 className="text-xl font-semibold text-gray-700 mb-4">Reportes Recientes</h2>
+                <ul className="space-y-3">
+                  {['Reporte de Mantenimiento Q3', 'Informe de Alquileres Julio', 'Estado de Flota General', 'Reporte Financiero Mensual'].map(report => (
+                    <li key={report} className="flex items-center text-sm text-gray-600 hover:text-blue-600 cursor-pointer">
+                      <FileText className="h-4 w-4 mr-2 flex-shrink-0" />
+                      {report}
+                    </li>
+                  ))}
+                </ul>
+                <button 
+                  onClick={() => setActiveModule('reports')}
+                  className="mt-4 text-sm text-blue-600 hover:underline"
+                >
+                  Ver todos los reportes
+                </button>
+              </div>
+            </div>
+
+            {/* Accesos Rápidos */}
+            <div>
+              <h2 className="text-2xl font-semibold text-gray-800 mb-6">Accesos Rápidos</h2>
+              <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
+                {quickAccessItems.map((item) => {
                   const Icon = item.icon;
-                  const isAvailable = ['machinery', 'warehouses', 'vehicles','fuel','tools','alerts','finace','rentals'].includes(item.id);
-                  
+                  const isAvailable = ['machinery', 'warehouses', 'vehicles','fuel','tools','parts','alerts','finance','rentals', 'reports'].includes(item.id);
                   return (
                     <button
                       key={item.id}
                       onClick={() => setActiveModule(item.id)}
-                      className={`p-6 bg-white rounded-xl shadow-lg hover:shadow-xl transition-all duration-200 border border-gray-200 hover:border-blue-300 group ${
-                        !isAvailable ? 'opacity-75' : ''
+                      disabled={!isAvailable}
+                      className={`flex flex-col items-center justify-center p-4 bg-white rounded-lg shadow-md hover:shadow-lg transition-shadow ${
+                        !isAvailable ? 'opacity-50 cursor-not-allowed' : 'hover:bg-gray-50'
                       }`}
                     >
-                      <Icon className={`h-12 w-12 mx-auto mb-4 group-hover:scale-110 transition-transform ${
-                        isAvailable ? 'text-blue-600' : 'text-gray-400'
+                      <Icon className={`h-10 w-10 mb-2 ${
+                        activeModule === item.id ? 'text-blue-600' : isAvailable ? 'text-blue-500' : 'text-gray-400'
                       }`} />
-                      <h3 className="text-lg font-semibold text-gray-900">{item.name}</h3>
-                      <p className="text-gray-600 mt-2">
-                        {item.id === 'machinery' && 'Gestiona tu flota de maquinarias'}
-                        {item.id === 'warehouses' && 'Administra tus almacenes'}
-                        {item.id === 'vehicles' && 'Controla tu flota de vehículos'}
-                        {item.id === 'reports' && 'Reportes y estadísticas (Próximamente)'}
-                        {item.id === 'clients' && 'Administra tus clientes (Próximamente)'}
-                        {item.id === 'contracts' && 'Contratos de alquiler (Próximamente)'}
-                        {item.id === 'calendar' && 'Programación y eventos (Próximamente)'}
-                      </p>
-                      {isAvailable && (
-                        <div className="mt-3">
-                          <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
-                            Disponible
-                          </span>
-                        </div>
-                      )}
-                      {!isAvailable && (
-                        <div className="mt-3">
-                          <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800">
-                            Próximamente
-                          </span>
-                        </div>
+                      <span className={`text-sm font-medium ${
+                        activeModule === item.id ? 'text-blue-700' : 'text-gray-700'
+                      }`}>{item.name}</span>
+                      {!isAvailable && item.id !== 'home' && (
+                        <span className="mt-1 text-xs bg-yellow-100 text-yellow-800 px-1.5 py-0.5 rounded-full">
+                          Pronto
+                        </span>
                       )}
                     </button>
                   );
                 })}
-              </div>
-
-              {/* Quick Stats */}
-              <div className="mt-12 grid grid-cols-1 md:grid-cols-3 gap-6 max-w-3xl mx-auto">
-                <div className="bg-gradient-to-r from-blue-500 to-blue-600 rounded-xl p-6 text-white">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <p className="text-blue-100">Módulos Activos</p>
-                      <p className="text-3xl font-bold">3</p>
-                    </div>
-                    <Wrench className="h-12 w-12 text-blue-200" />
-                  </div>
-                </div>
-                
-                <div className="bg-gradient-to-r from-green-500 to-green-600 rounded-xl p-6 text-white">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <p className="text-green-100">Sistema</p>
-                      <p className="text-xl font-bold">Operativo</p>
-                    </div>
-                    <div className="h-3 w-3 bg-green-200 rounded-full animate-pulse"></div>
-                  </div>
-                </div>
-
-                <div className="bg-gradient-to-r from-purple-500 to-purple-600 rounded-xl p-6 text-white">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <p className="text-purple-100">Gestión</p>
-                      <p className="text-xl font-bold">Completa</p>
-                    </div>
-                    <Car className="h-12 w-12 text-purple-200" />
-                  </div>
-                </div>
               </div>
             </div>
           </div>
