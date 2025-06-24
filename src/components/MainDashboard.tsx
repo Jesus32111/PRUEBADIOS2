@@ -353,7 +353,7 @@ const MainDashboard: React.FC = () => {
             <div className="h-8 w-8 bg-gradient-to-r from-blue-600 to-indigo-600 rounded-lg flex items-center justify-center">
               <Wrench className="h-5 w-5 text-white" />
             </div>
-            <span className="text-xl font-bold text-gray-900">MaquiRent</span>
+            <span className="text-xl font-bold text-gray-900">Taller Antony</span>
           </div>
           <button
             onClick={() => setSidebarOpen(false)}

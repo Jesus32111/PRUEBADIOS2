@@ -13,9 +13,19 @@ import {
   Clock,
   AlertCircle,
   CheckCircle,
-  XCircle
+  XCircle,
+  Upload, // Added for file uploads
+  FileText, // Added for document icons
+  Building2 // Added for warehouse icon
 } from 'lucide-react';
 import { apiClient } from '../context/AuthContext';
+
+interface Warehouse { // Added Warehouse interface
+  _id: string;
+  name: string;
+  address: string;
+  department: string;
+}
 
 interface Machinery {
   _id: string;
@@ -30,6 +40,16 @@ interface Machinery {
   purchaseDate?: string;
   purchasePrice?: number;
   location?: string;
+  soatExpiration?: string; // Added
+  technicalReviewExpiration?: string; // Added
+  warehouse?: Warehouse; // Changed to Warehouse object
+  notes?: string; // Added
+  documents?: { // Added
+    soat?: { filename: string; originalName: string; uploadDate: string; size: number };
+    technicalReview?: { filename: string; originalName: string; uploadDate: string; size: number };
+    propertyCard?: { filename: string; originalName: string; uploadDate: string; size: number }; // Assuming similar to vehicle
+    others?: Array<{ filename: string; originalName: string; uploadDate: string; size: number; description: string }>;
+  };
   compatibleParts?: Array<{
     partName: string;
     partNumber: string;
@@ -48,6 +68,7 @@ interface Machinery {
 
 const MachineryModule: React.FC = () => {
   const [machineries, setMachineries] = useState<Machinery[]>([]);
+  const [warehouses, setWarehouses] = useState<Warehouse[]>([]); // Added warehouses state
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [showForm, setShowForm] = useState(false);
@@ -55,6 +76,7 @@ const MachineryModule: React.FC = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
   const [typeFilter, setTypeFilter] = useState('all');
+  const [warehouseFilter, setWarehouseFilter] = useState('all'); // Added warehouse filter
 
   const [formData, setFormData] = useState({
     brand: '',
@@ -67,11 +89,22 @@ const MachineryModule: React.FC = () => {
     description: '',
     purchaseDate: '',
     purchasePrice: '',
-    location: ''
+    location: '',
+    soatExpiration: '', // Added
+    technicalReviewExpiration: '', // Added
+    warehouse: '', // Added
+    notes: '' // Added
+  });
+
+  const [files, setFiles] = useState({ // Added files state
+    soat: null as File | null,
+    technicalReview: null as File | null,
+    propertyCard: null as File | null,
+    others: [] as File[]
   });
 
   const machineryTypes = [
-    'Excavadora', 'Bulldozer', 'Grúa', 'Cargadora', 'Compactadora', 
+    'Excavadora', 'Bulldozer', 'Grúa', 'Cargadora', 'Compactadora',
     'Retroexcavadora', 'Motoniveladora', 'Volquete', 'Otro'
   ];
 
@@ -81,7 +114,17 @@ const MachineryModule: React.FC = () => {
 
   useEffect(() => {
     fetchMachineries();
+    fetchWarehouses(); // Added fetchWarehouses call
   }, []);
+
+  const fetchWarehouses = async () => { // Added fetchWarehouses function
+    try {
+      const response = await apiClient.get('/warehouses');
+      setWarehouses(response.data.data || []);
+    } catch (error: any) {
+      console.error('Error fetching warehouses:', error);
+    }
+  };
 
   const fetchMachineries = async () => {
     try {
@@ -91,6 +134,7 @@ const MachineryModule: React.FC = () => {
       console.log('Fetching machineries with filters:', {
         status: statusFilter !== 'all' ? statusFilter : undefined,
         type: typeFilter !== 'all' ? typeFilter : undefined,
+        warehouse: warehouseFilter !== 'all' ? warehouseFilter : undefined, // Added warehouse filter
         search: searchTerm || undefined
       });
 
@@ -98,6 +142,7 @@ const MachineryModule: React.FC = () => {
         params: {
           status: statusFilter !== 'all' ? statusFilter : undefined,
           type: typeFilter !== 'all' ? typeFilter : undefined,
+          warehouse: warehouseFilter !== 'all' ? warehouseFilter : undefined, // Added warehouse filter
           search: searchTerm || undefined
         }
       });
@@ -120,27 +165,50 @@ const MachineryModule: React.FC = () => {
     }, 300);
 
     return () => clearTimeout(delayedSearch);
-  }, [searchTerm, statusFilter, typeFilter]);
+  }, [searchTerm, statusFilter, typeFilter, warehouseFilter]); // Added warehouseFilter to dependencies
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
       setError(null);
-      const submitData = {
-        ...formData,
-        year: parseInt(formData.year.toString()),
-        hourMeter: parseFloat(formData.hourMeter.toString()) || 0,
-        purchasePrice: formData.purchasePrice ? parseFloat(formData.purchasePrice.toString()) : undefined,
-        purchaseDate: formData.purchaseDate || undefined
-      };
+      
+      const formDataToSend = new FormData(); // Changed to FormData for file uploads
+      
+      // Add form fields
+      Object.entries(formData).forEach(([key, value]) => {
+        if (key === 'year' || key === 'hourMeter' || key === 'purchasePrice') {
+          formDataToSend.append(key, value.toString());
+        } else if (value) { // Append only if value is not empty, for optional fields like dates
+          formDataToSend.append(key, value.toString());
+        }
+      });
+      formDataToSend.set('year', formData.year.toString()); // ensure year is always sent
+      formDataToSend.set('hourMeter', formData.hourMeter.toString()); // ensure hourMeter is always sent
 
-      console.log('Submitting machinery data:', submitData);
+
+      // Add files
+      if (files.soat) formDataToSend.append('soat', files.soat);
+      if (files.technicalReview) formDataToSend.append('technicalReview', files.technicalReview);
+      if (files.propertyCard) formDataToSend.append('propertyCard', files.propertyCard);
+      files.others.forEach(file => {
+        formDataToSend.append('others', file);
+      });
+
+      console.log('Submitting machinery data');
 
       if (editingMachinery) {
-        await apiClient.put(`/machinery/${editingMachinery._id}`, submitData);
+        await apiClient.put(`/machinery/${editingMachinery._id}`, formDataToSend, {
+          headers: {
+            'Content-Type': 'multipart/form-data',
+          },
+        });
         console.log('Machinery updated successfully');
       } else {
-        await apiClient.post('/machinery', submitData);
+        await apiClient.post('/machinery', formDataToSend, {
+          headers: {
+            'Content-Type': 'multipart/form-data',
+          },
+        });
         console.log('Machinery created successfully');
       }
 
@@ -149,6 +217,7 @@ const MachineryModule: React.FC = () => {
       resetForm();
       fetchMachineries();
     } catch (error: any) {
+      console.error('Error saving machinery:', error.response?.data || error.message); // Log more details
       console.error('Error saving machinery:', error);
       const errorMessage = error.response?.data?.message || 'Error al guardar la maquinaria';
       setError(errorMessage);
@@ -168,7 +237,17 @@ const MachineryModule: React.FC = () => {
       description: machinery.description || '',
       purchaseDate: machinery.purchaseDate ? machinery.purchaseDate.split('T')[0] : '',
       purchasePrice: machinery.purchasePrice?.toString() || '',
-      location: machinery.location || ''
+      location: machinery.location || '',
+      soatExpiration: machinery.soatExpiration ? machinery.soatExpiration.split('T')[0] : '', // Added
+      technicalReviewExpiration: machinery.technicalReviewExpiration ? machinery.technicalReviewExpiration.split('T')[0] : '', // Added
+      warehouse: machinery.warehouse?._id || '', // Added
+      notes: machinery.notes || '' // Added
+    });
+    setFiles({ // Reset files on edit
+      soat: null,
+      technicalReview: null,
+      propertyCard: null,
+      others: []
     });
     setShowForm(true);
   };
@@ -200,8 +279,26 @@ const MachineryModule: React.FC = () => {
       description: '',
       purchaseDate: '',
       purchasePrice: '',
-      location: ''
+    location: '',
+    soatExpiration: '', // Added
+    technicalReviewExpiration: '', // Added
+    warehouse: '', // Added
+    notes: '' // Added
     });
+  setFiles({ // Also reset files
+    soat: null,
+    technicalReview: null,
+    propertyCard: null,
+    others: []
+  });
+};
+
+const handleFileChange = (type: keyof typeof files, file: File | File[] | null) => { // Added handleFileChange
+  if (type === 'others' && Array.isArray(file)) {
+    setFiles(prev => ({ ...prev, [type]: file }));
+  } else if (type !== 'others' && !Array.isArray(file)) {
+    setFiles(prev => ({ ...prev, [type]: file }));
+  }
   };
 
   const getStatusIcon = (status: string) => {
@@ -267,7 +364,7 @@ const MachineryModule: React.FC = () => {
 
       {/* Filters */}
       <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4 mb-6">
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-5 gap-4"> {/* Changed to 5 cols for warehouse filter */}
           <div className="relative">
             <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400" />
             <input
@@ -298,6 +395,17 @@ const MachineryModule: React.FC = () => {
             <option value="all">Todos los tipos</option>
             {machineryTypes.map(type => (
               <option key={type} value={type}>{type}</option>
+            ))}
+          </select>
+
+          <select // Added Warehouse Filter
+            value={warehouseFilter}
+            onChange={(e) => setWarehouseFilter(e.target.value)}
+            className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+          >
+            <option value="all">Todos los almacenes</option>
+            {warehouses.map(warehouse => (
+              <option key={warehouse._id} value={warehouse._id}>{warehouse.name}</option>
             ))}
           </select>
 
@@ -350,6 +458,12 @@ const MachineryModule: React.FC = () => {
                   <Clock className="h-4 w-4 mr-2" />
                   {machinery.hourMeter.toLocaleString()} horas
                 </div>
+                {machinery.warehouse && ( // Display warehouse
+                  <div className="flex items-center text-sm text-gray-600">
+                    <Building2 className="h-4 w-4 mr-2" />
+                    {machinery.warehouse.name}
+                  </div>
+                )}
                 {machinery.location && (
                   <div className="flex items-center text-sm text-gray-600">
                     <MapPin className="h-4 w-4 mr-2" />
@@ -357,18 +471,44 @@ const MachineryModule: React.FC = () => {
                   </div>
                 )}
               </div>
+              
+              {/* Document Status - Placeholder, adapt if needed */}
+              {(machinery.soatExpiration || machinery.technicalReviewExpiration) && (
+                <div className="space-y-1 mb-3 text-xs">
+                  {machinery.soatExpiration && (
+                    <div className="flex items-center justify-between">
+                      <span className="text-gray-500">SOAT:</span>
+                      <span className={new Date(machinery.soatExpiration) < new Date() ? 'text-red-500' : 'text-green-500'}>
+                        {new Date(machinery.soatExpiration).toLocaleDateString()}
+                      </span>
+                    </div>
+                  )}
+                  {machinery.technicalReviewExpiration && (
+                     <div className="flex items-center justify-between">
+                      <span className="text-gray-500">Rev. Téc:</span>
+                      <span className={new Date(machinery.technicalReviewExpiration) < new Date() ? 'text-red-500' : 'text-green-500'}>
+                        {new Date(machinery.technicalReviewExpiration).toLocaleDateString()}
+                      </span>
+                    </div>
+                  )}
+                </div>
+              )}
 
               <div className="flex items-center justify-between mb-4">
                 <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getStatusColor(machinery.status)}`}>
                   {machinery.status}
                 </span>
-                {machinery.purchasePrice && (
-                  <div className="flex items-center text-sm text-gray-600">
-                    <DollarSign className="h-4 w-4 mr-1" />
-                    ${machinery.purchasePrice.toLocaleString()}
-                  </div>
-                )}
+                <div className="flex items-center text-sm text-gray-600">
+                  <FileText className="h-4 w-4 mr-1" /> 
+                  {Object.keys(machinery.documents || {}).length} docs
+                </div>
               </div>
+              
+              {machinery.notes && ( // Display notes
+                <div className="mb-4 p-2 bg-gray-50 rounded text-sm text-gray-600">
+                  <strong>Notas:</strong> {machinery.notes}
+                </div>
+              )}
 
               {machinery.description && (
                 <p className="text-sm text-gray-600 mb-4 line-clamp-2">
@@ -429,7 +569,8 @@ const MachineryModule: React.FC = () => {
           <div className="flex items-center justify-center min-h-screen px-4 pt-4 pb-20 text-center sm:block sm:p-0">
             <div className="fixed inset-0 transition-opacity bg-gray-500 bg-opacity-75" onClick={() => setShowForm(false)} />
             
-            <div className="inline-block w-full max-w-2xl p-6 my-8 overflow-hidden text-left align-middle transition-all transform bg-white shadow-xl rounded-2xl">
+            {/* Increased max-w-4xl for more space, max-h-[90vh] and overflow-y-auto for scroll */}
+            <div className="inline-block w-full max-w-4xl p-6 my-8 overflow-hidden text-left align-middle transition-all transform bg-white shadow-xl rounded-2xl max-h-[90vh] overflow-y-auto">
               <div className="flex items-center justify-between mb-6">
                 <h3 className="text-lg font-medium text-gray-900">
                   {editingMachinery ? 'Editar Maquinaria' : 'Nueva Maquinaria'}
@@ -586,11 +727,162 @@ const MachineryModule: React.FC = () => {
                       placeholder="Precio en USD"
                     />
                   </div>
-                </div>
 
+                  {/* Added SOAT Expiration, Technical Review Expiration, Warehouse, Notes */}
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Vencimiento SOAT
+                    </label>
+                    <input
+                      type="date"
+                      value={formData.soatExpiration}
+                      onChange={(e) => setFormData({ ...formData, soatExpiration: e.target.value })}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Vencimiento Revisión Técnica
+                    </label>
+                    <input
+                      type="date"
+                      value={formData.technicalReviewExpiration}
+                      onChange={(e) => setFormData({ ...formData, technicalReviewExpiration: e.target.value })}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    />
+                  </div>
+                  
+                  <div className="md:col-span-2">
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Almacén
+                    </label>
+                    <select
+                      value={formData.warehouse}
+                      onChange={(e) => setFormData({ ...formData, warehouse: e.target.value })}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    >
+                      <option value="">Seleccionar almacén</option>
+                      {warehouses.map(warehouse => (
+                        <option key={warehouse._id} value={warehouse._id}>
+                          {warehouse.name} - {warehouse.department}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
+                  <div className="md:col-span-2">
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Notas Adicionales
+                    </label>
+                    <textarea
+                      rows={3}
+                      value={formData.notes}
+                      onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      placeholder="Notas sobre la maquinaria, mantenimientos, etc."
+                    />
+                  </div>
+                </div>
+                
+                {/* Document Upload Section - Copied and adapted from VehicleModule */}
+                <div className="border-t border-gray-200 pt-6">
+                  <h4 className="text-lg font-medium text-gray-900 mb-4">Documentos Adjuntos</h4>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        SOAT
+                      </label>
+                      <div className="flex items-center space-x-2">
+                        <input
+                          type="file"
+                          accept=".pdf,.doc,.docx,.jpg,.jpeg,.png"
+                          onChange={(e) => handleFileChange('soat', e.target.files?.[0] || null)}
+                          className="hidden"
+                          id="machinery-soat-upload"
+                        />
+                        <label
+                          htmlFor="machinery-soat-upload"
+                          className="flex-1 flex items-center justify-center px-3 py-2 border border-gray-300 rounded-lg cursor-pointer hover:bg-gray-50"
+                        >
+                          <Upload className="h-4 w-4 mr-2" />
+                          {files.soat ? files.soat.name : 'Subir SOAT'}
+                        </label>
+                      </div>
+                    </div>
+
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        Revisión Técnica
+                      </label>
+                      <div className="flex items-center space-x-2">
+                        <input
+                          type="file"
+                          accept=".pdf,.doc,.docx,.jpg,.jpeg,.png"
+                          onChange={(e) => handleFileChange('technicalReview', e.target.files?.[0] || null)}
+                          className="hidden"
+                          id="machinery-tech-review-upload"
+                        />
+                        <label
+                          htmlFor="machinery-tech-review-upload"
+                          className="flex-1 flex items-center justify-center px-3 py-2 border border-gray-300 rounded-lg cursor-pointer hover:bg-gray-50"
+                        >
+                          <Upload className="h-4 w-4 mr-2" />
+                          {files.technicalReview ? files.technicalReview.name : 'Subir Rev. Técnica'}
+                        </label>
+                      </div>
+                    </div>
+
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        Tarjeta de Propiedad / Factura
+                      </label>
+                      <div className="flex items-center space-x-2">
+                        <input
+                          type="file"
+                          accept=".pdf,.doc,.docx,.jpg,.jpeg,.png"
+                          onChange={(e) => handleFileChange('propertyCard', e.target.files?.[0] || null)}
+                          className="hidden"
+                          id="machinery-property-card-upload"
+                        />
+                        <label
+                          htmlFor="machinery-property-card-upload"
+                          className="flex-1 flex items-center justify-center px-3 py-2 border border-gray-300 rounded-lg cursor-pointer hover:bg-gray-50"
+                        >
+                          <Upload className="h-4 w-4 mr-2" />
+                          {files.propertyCard ? files.propertyCard.name : 'Subir Tarjeta/Factura'}
+                        </label>
+                      </div>
+                    </div>
+
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        Otros Documentos
+                      </label>
+                      <div className="flex items-center space-x-2">
+                        <input
+                          type="file"
+                          accept=".pdf,.doc,.docx,.jpg,.jpeg,.png"
+                          multiple
+                          onChange={(e) => handleFileChange('others', Array.from(e.target.files || []))}
+                          className="hidden"
+                          id="machinery-others-upload"
+                        />
+                        <label
+                          htmlFor="machinery-others-upload"
+                          className="flex-1 flex items-center justify-center px-3 py-2 border border-gray-300 rounded-lg cursor-pointer hover:bg-gray-50"
+                        >
+                          <Upload className="h-4 w-4 mr-2" />
+                          {files.others.length > 0 ? `${files.others.length} archivo(s)` : 'Subir Otros'}
+                        </label>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+                
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Descripción
+                    Descripción General
                   </label>
                   <textarea
                     rows={3}
