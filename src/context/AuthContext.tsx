@@ -83,8 +83,10 @@ interface AuthContextType extends AuthState {
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 // Create axios instance
+const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
+
 export const apiClient = axios.create({
-  baseURL: 'http://localhost:5000/api',
+  baseURL: API_URL,
   withCredentials: true,
 });
 
@@ -124,7 +126,9 @@ apiClient.interceptors.response.use(
 );
 
 // Set default axios configuration for backward compatibility
-axios.defaults.baseURL = 'http://localhost:5000/api';
+// Ensure API_URL is defined here as well if this instance is used elsewhere,
+// or consider removing this global default modification if apiClient is used consistently.
+axios.defaults.baseURL = API_URL; // Use the same API_URL
 axios.defaults.withCredentials = true;
 
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {

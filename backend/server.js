@@ -31,9 +31,23 @@ const PORT = process.env.PORT;
 connectDB();
 
 // Security middleware
-app.use(helmet());
+const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:5173';
+
+app.use(helmet({
+  contentSecurityPolicy: {
+    directives: {
+      ...helmet.contentSecurityPolicy.getDefaultDirectives(),
+      "default-src": ["'self'"],
+      "connect-src": ["'self'", frontendUrl],
+      // Si en el futuro necesitas cargar scripts, estilos, fuentes, imágenes, etc., desde otros dominios,
+      // deberás añadirlos aquí. Por ejemplo:
+      // "script-src": ["'self'", "https://cdn.jsdelivr.net"],
+      // "img-src": ["'self'", "data:", "https://images.example.com"],
+    },
+  },
+}));
 app.use(cors({
-  origin: process.env.FRONTEND_URL || 'http://localhost:5173',
+  origin: frontendUrl,
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization']
