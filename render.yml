@@ -1,0 +1,44 @@
+services:
+  - type: web
+    name: backend
+    env: node
+    region: oregon # o la región que prefiera el usuario
+    rootDir: backend
+    plan: free # o el plan que prefiera el usuario
+    buildCommand: npm install
+    startCommand: node server.js
+    healthCheckPath: /api/health
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: FRONTEND_URL
+        fromService:
+          type: static
+          name: frontend
+          property: url
+      - key: DATABASE_URL
+        sync: false # El usuario debe configurar esto manualmente
+      - key: JWT_SECRET
+        generateValue: true # Render generará un valor aleatorio seguro
+      # El usuario debe añadir otras variables necesarias del .env aquí
+      # Ejemplo:
+      # - key: OTRA_VARIABLE_REQUERIDA
+      #   sync: false
+
+  - type: static
+    name: frontend
+    region: oregon # o la región que prefiera el usuario
+    rootDir: .
+    plan: free # o el plan que prefiera el usuario
+    buildCommand: npm install && npm run build
+    publishPath: dist
+    envVars:
+      - key: VITE_API_URL
+        fromService:
+          type: web
+          name: backend
+          property: url
+    routes:
+      - type: rewrite
+        source: /*
+        destination: /index.html
