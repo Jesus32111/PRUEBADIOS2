@@ -2,6 +2,7 @@ import express from 'express';
 import { body, validationResult } from 'express-validator';
 import Tool from '../models/Tool.js';
 import Warehouse from '../models/Warehouse.js';
+import FinanceRecord from '../models/FinanceRecord.js'; // Import FinanceRecord
 import { protect } from '../middleware/auth.js';
 
 const router = express.Router();
@@ -190,16 +191,40 @@ router.post('/', [
     const savedTool = await tool.save();
     
     // Populate the created tool
-    await savedTool.populate([
+    const populatedTool = await savedTool.populate([
       { path: 'createdBy', select: 'name email' },
       { path: 'warehouse', select: 'name address department' }
     ]);
     
-    console.log('Tool created successfully:', savedTool._id);
+    console.log('Tool created successfully:', populatedTool._id);
+
+    // Create FinanceRecord for tool purchase if price is available
+    if (populatedTool.purchasePrice && populatedTool.purchasePrice > 0) {
+      try {
+        const description = `Compra de herramienta: ${populatedTool.name} ${populatedTool.code ? `(${populatedTool.code})` : ''}`.trim();
+        const financeRecordData = {
+          type: 'Egreso',
+          category: 'Compra de Herramientas',
+          description: description,
+          amount: populatedTool.purchasePrice,
+          date: populatedTool.purchaseDate || new Date(),
+          paymentMethod: req.body.paymentMethod || 'Efectivo', // Or from request if available
+          sourceType: 'Tool',
+          sourceId: populatedTool._id,
+          createdBy: req.user._id,
+          notes: `Adquisición de herramienta: ${populatedTool.name}`
+        };
+        const newFinanceRecord = new FinanceRecord(financeRecordData);
+        await newFinanceRecord.save();
+        console.log('FinanceRecord created for tool purchase:', newFinanceRecord._id);
+      } catch (financeError) {
+        console.error('Error creating FinanceRecord for tool purchase:', financeError);
+      }
+    }
 
     res.status(201).json({
       success: true,
-      data: savedTool
+      data: populatedTool
     });
   } catch (error) {
     console.error('Create tool error:', error);
@@ -389,12 +414,44 @@ router.post('/:id/maintenance', [
       });
     }
 
-    tool.maintenanceHistory.push(req.body);
+    const maintenanceEntry = { ...req.body, date: req.body.date || new Date() };
+    tool.maintenanceHistory.push(maintenanceEntry);
     await tool.save();
+
+    // Create FinanceRecord for maintenance cost if applicable
+    if (maintenanceEntry.cost && maintenanceEntry.cost > 0) {
+      try {
+        const description = `Costo de mantenimiento para herramienta: ${tool.name} (${maintenanceEntry.type} - ${maintenanceEntry.description.substring(0, 50)})`;
+        const financeRecordData = {
+          type: 'Egreso',
+          category: 'Mantenimiento Herramientas',
+          description: description,
+          amount: maintenanceEntry.cost,
+          date: maintenanceEntry.date,
+          paymentMethod: req.body.paymentMethodMaintenance || 'Efectivo', // Consider specific field
+          sourceType: 'Tool',
+          sourceId: tool._id,
+          reference: `Maint-${tool._id}-${maintenanceEntry.date.toISOString().split('T')[0]}`,
+          createdBy: req.user._id,
+          notes: `Mantenimiento: ${maintenanceEntry.type} para ${tool.name}. Costo: ${maintenanceEntry.cost}.`
+        };
+        const newFinanceRecord = new FinanceRecord(financeRecordData);
+        await newFinanceRecord.save();
+        console.log('FinanceRecord created for tool maintenance:', newFinanceRecord._id);
+      } catch (financeError) {
+        console.error('Error creating FinanceRecord for tool maintenance:', financeError);
+      }
+    }
+    
+    // Repopulate tool to include the new maintenance history and any other virtuals
+    const populatedTool = await Tool.findById(tool._id)
+        .populate('createdBy', 'name email')
+        .populate('warehouse', 'name address department');
+
 
     res.status(200).json({
       success: true,
-      data: tool
+      data: populatedTool
     });
   } catch (error) {
     console.error('Add maintenance error:', error);

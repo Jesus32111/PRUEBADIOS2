@@ -207,6 +207,7 @@ router.get('/', async (req, res) => {
 
     // Get total count for pagination
     const total = await FinanceRecord.countDocuments(query);
+    console.log(`Total documents matching query before pagination: ${total} for user ${req.user._id}`); // DEBUG
     
     // Get finance records with pagination
     const financeRecords = await FinanceRecord.find(query)
@@ -216,7 +217,7 @@ router.get('/', async (req, res) => {
       .limit(limitNum)
       .lean();
 
-    console.log(`Found ${financeRecords.length} finance records (${total} total)`);
+    console.log(`Found ${financeRecords.length} finance records (after pagination, total: ${total}) for user ${req.user._id}`); // DEBUG
 
     res.status(200).json({
       success: true,

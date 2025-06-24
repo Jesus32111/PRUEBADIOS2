@@ -3,6 +3,7 @@ import { body, validationResult } from 'express-validator';
 import FuelRecord from '../models/FuelRecord.js';
 import Vehicle from '../models/Vehicle.js';
 import Machinery from '../models/Machinery.js';
+import FinanceRecord from '../models/FinanceRecord.js'; // Import FinanceRecord
 import { protect } from '../middleware/auth.js';
 
 const router = express.Router();
@@ -374,17 +375,47 @@ router.post('/', [
     const savedFuelRecord = await fuelRecord.save();
     
     // Populate the created fuel record
-    await savedFuelRecord.populate([
-      { path: 'vehicle', select: 'plate brand model year' },
-      { path: 'machinery', select: 'brand model serialNumber type' },
+    const populatedFuelRecord = await savedFuelRecord.populate([
+      { path: 'vehicle', select: 'plate brand model year name' }, // Added 'name' for description
+      { path: 'machinery', select: 'brand model serialNumber type name' }, // Added 'name' for description
       { path: 'createdBy', select: 'name email' }
     ]);
     
-    console.log('Fuel record created successfully:', savedFuelRecord._id);
+    console.log('Fuel record created successfully:', populatedFuelRecord._id);
+
+    // Create corresponding FinanceRecord
+    try {
+      let description = `Gasto de combustible`;
+      if (populatedFuelRecord.vehicle) {
+        description += ` para vehículo ${populatedFuelRecord.vehicle.name || populatedFuelRecord.vehicle.plate}`;
+      } else if (populatedFuelRecord.machinery) {
+        description += ` para maquinaria ${populatedFuelRecord.machinery.name || populatedFuelRecord.machinery.serialNumber}`;
+      }
+
+      const financeRecordData = {
+        type: 'Egreso',
+        category: 'Combustible',
+        description: description,
+        amount: populatedFuelRecord.totalCost,
+        date: populatedFuelRecord.fuelDate,
+        paymentMethod: req.body.paymentMethod || 'Efectivo', // Or get from fuel record if available
+        sourceType: 'Fuel',
+        sourceId: populatedFuelRecord._id,
+        createdBy: req.user._id,
+        notes: `Registro automático por carga de combustible. ${populatedFuelRecord.notes || ''}`.trim()
+      };
+      const newFinanceRecord = new FinanceRecord(financeRecordData);
+      await newFinanceRecord.save();
+      console.log('FinanceRecord created successfully for FuelRecord:', newFinanceRecord._id);
+    } catch (financeError) {
+      console.error('Error creating FinanceRecord for FuelRecord:', financeError);
+      // Decide if this should be a critical error. For now, log and continue.
+      // Potentially, you might want to delete the FuelRecord if FinanceRecord creation fails.
+    }
 
     res.status(201).json({
       success: true,
-      data: savedFuelRecord
+      data: populatedFuelRecord
     });
   } catch (error) {
     console.error('Create fuel record error:', error);

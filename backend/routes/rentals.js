@@ -3,6 +3,7 @@ import { body, validationResult, param } from 'express-validator';
 import Rental from '../models/Rental.js';
 import Vehicle from '../models/Vehicle.js';
 import Machinery from '../models/Machinery.js';
+import FinanceRecord from '../models/FinanceRecord.js'; // Import FinanceRecord
 import { protect } from '../middleware/auth.js';
 
 const router = express.Router();
@@ -193,6 +194,47 @@ router.post('/', commonValidationRules, validateEquipment, async (req, res) => {
             select: 'plate brand model serialNumber type name'
         })
         .populate('createdBy', 'name email');
+
+    // Create corresponding FinanceRecord
+    try {
+      const startDate = new Date(populatedRental.startDate);
+      const endDate = new Date(populatedRental.endDate);
+      // Calculate duration in days (add 1 because rental periods are inclusive)
+      const durationInMilliseconds = endDate.getTime() - startDate.getTime();
+      const durationInDays = Math.ceil(durationInMilliseconds / (1000 * 60 * 60 * 24)) + 1;
+      
+      let totalIncome = durationInDays * populatedRental.dailyRate;
+      if (populatedRental.transportCost) {
+        totalIncome += populatedRental.transportCost;
+      }
+
+      let equipmentName = 'Equipo';
+      if (populatedRental.equipment) {
+        equipmentName = populatedRental.equipment.name || populatedRental.equipment.plate || populatedRental.equipment.serialNumber || `ID: ${populatedRental.equipment._id}`;
+      }
+      
+      const description = `Ingreso por alquiler de ${equipmentName} a ${populatedRental.customerName}.`;
+      
+      const financeRecordData = {
+        type: 'Ingreso',
+        category: 'Alquileres',
+        description: description,
+        amount: totalIncome,
+        date: populatedRental.startDate, // Or endDate, depending on business logic for revenue recognition
+        paymentMethod: req.body.paymentMethod || 'Transferencia', // Default or from request
+        sourceType: 'Rental',
+        sourceId: populatedRental._id,
+        createdBy: req.user._id,
+        notes: `Cliente: ${populatedRental.customerName}. Equipo: ${equipmentName}. Período: ${startDate.toLocaleDateString()} - ${endDate.toLocaleDateString()}. Días: ${durationInDays}. Tarifa diaria: ${populatedRental.dailyRate}. Costo transporte: ${populatedRental.transportCost || 0}.` 
+      };
+      const newFinanceRecord = new FinanceRecord(financeRecordData);
+      await newFinanceRecord.save();
+      console.log('FinanceRecord created successfully for Rental:', newFinanceRecord._id);
+
+    } catch (financeError) {
+      console.error('Error creating FinanceRecord for Rental:', financeError);
+      // Log and continue, or handle more robustly
+    }
 
     res.status(201).json({ success: true, data: populatedRental });
   } catch (error) {

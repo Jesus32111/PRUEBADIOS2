@@ -4,6 +4,7 @@ import Part from '../models/Part.js';
 import Warehouse from '../models/Warehouse.js';
 import Vehicle from '../models/Vehicle.js';
 import Machinery from '../models/Machinery.js';
+import FinanceRecord from '../models/FinanceRecord.js'; // Import FinanceRecord
 import { protect } from '../middleware/auth.js';
 
 const router = express.Router();
@@ -290,16 +291,44 @@ router.post('/', [
     const savedPart = await part.save();
     
     // Populate the created part
-    await savedPart.populate([
+    const populatedPart = await savedPart.populate([
       { path: 'createdBy', select: 'name email' },
       { path: 'warehouse', select: 'name address department' }
     ]);
     
-    console.log('Part created successfully:', savedPart._id);
+    console.log('Part created successfully:', populatedPart._id);
+
+    // Create FinanceRecord for initial stock entry if applicable
+    if (populatedPart.currentStock > 0 && populatedPart.unitPrice && populatedPart.unitPrice > 0) {
+      try {
+        const initialStockMovement = populatedPart.stockMovements.find(m => m.reason === 'Stock inicial');
+        if (initialStockMovement) {
+          const totalCost = initialStockMovement.quantity * populatedPart.unitPrice;
+          const financeRecordData = {
+            type: 'Egreso',
+            category: 'Compra de Repuestos',
+            description: `Compra inicial de ${initialStockMovement.quantity} x ${populatedPart.name} (${populatedPart.partNumber})`,
+            amount: totalCost,
+            date: initialStockMovement.date || new Date(),
+            paymentMethod: req.body.paymentMethod || 'Efectivo', // Consider adding paymentMethod to part creation
+            sourceType: 'Part',
+            sourceId: populatedPart._id,
+            reference: initialStockMovement.reference,
+            createdBy: req.user._id,
+            notes: `Stock inicial para ${populatedPart.name}. Cantidad: ${initialStockMovement.quantity}, Precio Unitario: ${populatedPart.unitPrice}`
+          };
+          const newFinanceRecord = new FinanceRecord(financeRecordData);
+          await newFinanceRecord.save();
+          console.log('FinanceRecord created successfully for initial part stock:', newFinanceRecord._id);
+        }
+      } catch (financeError) {
+        console.error('Error creating FinanceRecord for initial part stock:', financeError);
+      }
+    }
 
     res.status(201).json({
       success: true,
-      data: savedPart
+      data: populatedPart
     });
   } catch (error) {
     console.error('Create part error:', error);
@@ -523,7 +552,7 @@ router.put('/:id/stock', [
     await part.save();
 
     // Populate the updated part
-    await part.populate([
+    const populatedStockUpdatePart = await part.populate([
       { path: 'createdBy', select: 'name email' },
       { path: 'warehouse', select: 'name address department' },
       { path: 'stockMovements.performedBy', select: 'name email' }
@@ -531,9 +560,36 @@ router.put('/:id/stock', [
 
     console.log('Part stock updated successfully');
 
+    // Create FinanceRecord for 'Entrada' of stock if unitPrice is available
+    if (type === 'Entrada' && populatedStockUpdatePart.unitPrice && populatedStockUpdatePart.unitPrice > 0) {
+      try {
+        const currentMovement = populatedStockUpdatePart.stockMovements[populatedStockUpdatePart.stockMovements.length - 1];
+        const totalCost = currentMovement.quantity * populatedStockUpdatePart.unitPrice;
+        
+        const financeRecordData = {
+          type: 'Egreso',
+          category: 'Compra de Repuestos',
+          description: `Compra de ${currentMovement.quantity} x ${populatedStockUpdatePart.name} (${populatedStockUpdatePart.partNumber})`,
+          amount: totalCost,
+          date: currentMovement.date || new Date(),
+          paymentMethod: req.body.paymentMethodStock || 'Efectivo', // Consider a specific field for payment method on stock update
+          sourceType: 'Part',
+          sourceId: populatedStockUpdatePart._id,
+          reference: currentMovement.reference,
+          createdBy: req.user._id,
+          notes: `Entrada de stock: ${currentMovement.reason}. Cantidad: ${currentMovement.quantity}, Precio Unit.: ${populatedStockUpdatePart.unitPrice}`
+        };
+        const newFinanceRecord = new FinanceRecord(financeRecordData);
+        await newFinanceRecord.save();
+        console.log('FinanceRecord created for part stock entry:', newFinanceRecord._id);
+      } catch (financeError) {
+        console.error('Error creating FinanceRecord for part stock entry:', financeError);
+      }
+    }
+
     res.status(200).json({
       success: true,
-      data: part
+      data: populatedStockUpdatePart
     });
   } catch (error) {
     console.error('Update part stock error:', error);

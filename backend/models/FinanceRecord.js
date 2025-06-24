@@ -45,7 +45,9 @@ const financeRecordSchema = new mongoose.Schema({
   },
   sourceType: {
     type: String,
-    enum: ['Rental', 'Manual', 'Fuel', 'Maintenance', 'Purchase', 'Sale'],
+    // Added 'Part' and 'Tool'. Considered 'FuelRecord' but 'Fuel' is already in use and working.
+    // 'Maintenance' and 'Purchase' are generic and could be used by other modules if needed.
+    enum: ['Rental', 'Manual', 'Fuel', 'Part', 'Tool', 'Maintenance', 'Purchase', 'Sale'],
     default: 'Manual'
   },
   sourceId: {
